@@ -1,1 +1,10 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.pytest_cache/
+.gitignore
+.DS_Store
 news-summarizer/cache.py
