@@ -5,3 +5,14 @@ This lab involved building a multi-provider news summarizer combining NewsAPI, O
 I learned how fallback logic keeps the app resilient when a provider fails, how cost tracking differs slightly across providers with different pricing and usage response formats, and how async processing (using each provider's native async client instead of aiohttp) can speed up multi-article runs at no extra cost. Adding the keyword search also taught me a practical constraint of the free NewsAPI plan: very recent articles aren't always indexed yet, so I settled on a 7-day lookback window as a balance between freshness and reliability — a limitation worth surfacing to the user rather than hiding. Designing the UI also made me realize I could keep refining indefinitely!
 
 For future improvements, I'd add a configurable cost ceiling that stops processing once the daily budget is reached.
+
+
+Domain (business logic)
+├── summarizer.py     → process_articles(), process_by_keyword()
+├── llm_providers.py  →  OpenAI/Cohere calls
+├── news_api.py       →  NewsAPI calls
+└── cache.py          → caching
+
+Front end
+├── main.py  → interface terminal (input(), print())
+└── app.py   → interface web (HTML, Flask)
