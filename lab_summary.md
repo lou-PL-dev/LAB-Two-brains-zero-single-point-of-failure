@@ -1,8 +1,7 @@
 # Lab Summary
 
-This lab involved building a multi-provider news summarizer combining NewsAPI, OpenAI, and Cohere into a single pipeline with fallback logic and cost tracking. 
+This lab involved building a multi-provider news summarizer combining NewsAPI, OpenAI, and Cohere into a single pipeline with fallback logic and cost tracking. As stretch goals, I added local caching to avoid reprocessing identical articles, a keyword-based search (NewsAPI's `/everything` endpoint) for more granular queries beyond the fixed categories, and a Flask web UI with inline help tooltips to guide users on refining their searches.
 
- 
-I learned how fallback logic keeps the app resilient when a provider fails, how cost tracking differs slightly across providers with different pricing and usage response formats, and how async processing (using each provider's native async client instead of aiohttp) can speed up multi-article runs at no extra cost. 
+I learned how fallback logic keeps the app resilient when a provider fails, how cost tracking differs slightly across providers with different pricing and usage response formats, and how async processing (using each provider's native async client instead of aiohttp) can speed up multi-article runs at no extra cost. Adding the keyword search also taught me a practical constraint of the free NewsAPI plan: very recent articles aren't always indexed yet, so I settled on a 7-day lookback window as a balance between freshness and reliability — a limitation worth surfacing to the user rather than hiding. Designing the UI also made me realize I could keep refining indefinitely!
 
 For future improvements, I'd add a configurable cost ceiling that stops processing once the daily budget is reached.

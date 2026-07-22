@@ -2,7 +2,8 @@
 summarizer.py
 Core logic: fetches articles, summarizes them with OpenAI,
 and analyzes sentiment with Cohere. Sync and async versions available.
-Tracks costs along the way.
+Tracks costs along the way. Uses a local cache to avoid reprocessing
+identical articles and save money. Supports fetching by category or by keyword.
 
 Usage:
     python summarizer.py --sync
@@ -17,6 +18,7 @@ import cohere
 from config import Config
 from news_api import NewsAPIClient
 from llm_providers import LLMProviders, CostTracker
+from cache import get_cached, set_cached
 
 
 class NewsSummarizer:
@@ -28,15 +30,14 @@ class NewsSummarizer:
         self.news_client = NewsAPIClient(config)
         self.llm = LLMProviders(config, self.cost_tracker)
 
-    def process_articles(self, category="technology", country="us", num_articles=2):
-        articles = self.news_client.fetch_articles(
-            category=category, country=country, page_size=num_articles
-        )
+    def _summarize_and_cache(self, article):
+        """Summarizes + analyzes sentiment for one article, using cache when available."""
+        source_text = f"{article['title']}. {article['description'] or ''}"
 
-        results = []
-        for article in articles:
-            source_text = f"{article['title']}. {article['description'] or ''}"
-
+        cached = get_cached(source_text)
+        if cached:
+            summary, sentiment = cached["summary"], cached["sentiment"]
+        else:
             summary = self.llm.summarize_with_openai(source_text)
             if summary is None:
                 summary = article["description"] or "Summary unavailable."
@@ -45,15 +46,29 @@ class NewsSummarizer:
             if sentiment is None:
                 sentiment = "Sentiment unavailable."
 
-            results.append({
-                "title": article["title"],
-                "url": article["url"],
-                "source": article["source"],
-                "summary": summary,
-                "sentiment": sentiment,
-            })
+            set_cached(source_text, summary, sentiment)
 
-        return results
+        return {
+            "title": article["title"],
+            "url": article["url"],
+            "source": article["source"],
+            "summary": summary,
+            "sentiment": sentiment,
+        }
+
+    def process_articles(self, category="technology", country="us", num_articles=2):
+        """Fetches by category (top-headlines) and processes each article."""
+        articles = self.news_client.fetch_articles(
+            category=category, country=country, page_size=num_articles
+        )
+        return [self._summarize_and_cache(article) for article in articles]
+
+    def process_by_keyword(self, keyword, num_articles=3, from_date=None):
+        """Fetches by keyword (everything endpoint) and processes each article."""
+        articles = self.news_client.search_articles(
+            keyword, page_size=num_articles, from_date=from_date
+        )
+        return [self._summarize_and_cache(article) for article in articles]
 
     def print_report(self, results):
         print("\n" + "=" * 60)
@@ -125,6 +140,16 @@ class AsyncNewsSummarizer:
     async def process_one_article(self, article):
         source_text = f"{article['title']}. {article['description'] or ''}"
 
+        cached = get_cached(source_text)
+        if cached:
+            return {
+                "title": article["title"],
+                "url": article["url"],
+                "source": article["source"],
+                "summary": cached["summary"],
+                "sentiment": cached["sentiment"],
+            }
+
         summary_task = self.summarize_with_openai_async(source_text)
         sentiment_task = self.analyze_sentiment_with_cohere_async(source_text)
 
@@ -134,6 +159,8 @@ class AsyncNewsSummarizer:
             summary = article["description"] or "Summary unavailable."
         if sentiment is None:
             sentiment = "Sentiment unavailable."
+
+        set_cached(source_text, summary, sentiment)
 
         return {
             "title": article["title"],
